@@ -1,3 +1,5 @@
 source http://nuget.org/api/v2
 
 nuget FAKE
+nuget NUnit
+nuget NUnit.Console

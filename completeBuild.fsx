@@ -1,21 +1,29 @@
 // include Fake lib
-#r @"packages\FAKE\tools\FakeLib.dll"
+#I @"packages/FAKE/tools/"
+#r @"FakeLib.dll"
 
 //That's for Powershell
 #r "System.Management.Automation"
 
 open Fake
 open Fake.AssemblyInfoFile
+open System.Globalization
+open Fake.Testing.NUnit3
+
+open System
+open System.Globalization
+open System.Management.Automation
 
 
 RestorePackages()
 
 
 // Directories
-let buildDir  = @".\build\"
-let testDir   = @".\test\"
-let deployDir = @".\deploy\"
-let packagesDir = @".\packages"
+let buildDir  = "./build/"
+let testDir   = "./test/"
+let deployDir = "./deploy/"
+
+let packagesDir = "./packages"
 
 // tools
 let fxCopRoot = @".\Tools\FxCop\FxCopCmd.exe"
@@ -25,17 +33,19 @@ let version = "0.2"  // or retrieve from CI server
 
 // That's my version function! Year.WeekNumber.DayOfWeek.Hour
 let myVersion =
-     let dfi=System.Globalization.DateTimeFormatInfo.CurrentInfo
-     let calendar=dfi.Calendar
-
-     let now=DateTime.Now
-     let weekNum=calendar.GetWeekOfYear(now,dfi.CalendarWeekRule,dfi.FirstDayOfWeek)
+     let getWeekNum date =
+        let dfi=DateTimeFormatInfo.CurrentInfo
+        let calendar=dfi.Calendar
+        calendar.GetWeekOfYear(date,dfi.CalendarWeekRule,dfi.FirstDayOfWeek)
+     
+     let now = DateTime.Now
+     let weekNum=getWeekNum 
      String.Format("{0:yy}.{1}.{2}.{0:HHmm}",now,weekNum,(int)now.DayOfWeek  )
 
-  let InvokeRemote server command =
+let InvokeRemote server command =
     let block = ScriptBlock.Create(command)
     let pipe=PowerShell.Create()    
-              .AddCommand("invoke-command")
+                .AddCommand("invoke-command")
     pipe.AddParameter("ComputerName", server)            
         .AddParameter("ScriptBlock", block)
         .Invoke() 
@@ -43,7 +53,7 @@ let myVersion =
         |> Seq.iter (fun line ->
                             let tracer=if line.Contains("not installed") then
                                             traceError 
-                                       else 
+                                        else 
                                             trace
                             tracer line)
     pipe.Streams.Error |> Seq.iter (traceError << sprintf "%O" )
@@ -84,11 +94,9 @@ Target "CompileTest" (fun _ ->
 )
 
 Target "NUnitTest" (fun _ ->
-    !! (testDir + @"\NUnit.Test.*.dll")
-      |> NUnit (fun p ->
-                 {p with
-                   DisableShadowCopy = true;
-                   OutputFile = testDir + @"TestResults.xml"})
+    !! (testDir </>  @"NUnit.Test.*.dll")
+      |> NUnit3 (fun p ->
+          {p with WorkingDir = testDir })
 )
 
 Target "FxCop" (fun _ ->
